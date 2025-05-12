@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Flappy Bird</title>
+  <style>
+    canvas { background: #70c5ce; display: block; margin: 0 auto; }
+  </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="320" height="480"></canvas>
+<script>
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+
+  const birdSprite = new Image();
+  birdSprite.src = "bird-sprite-2.png"; // Replace with the path to your bird sprite image
+
+  const bird = {
+    x: 50,
+    y: 150,
+    width: 52.2, // Width of a single frame in the sprite
+    height: 49, // Height of a single frame in the sprite
+    gravity: 0.5,
+    lift: -5,
+    velocity: 0,
+    frameIndex: 0, // Current frame index
+    frameCount: 3, // Total number of frames in the sprite
+    frameInterval: 5, // Frames to wait before switching to the next sprite frame
+    frameTimer: 0 // Timer to track frame switching
+  };
+
+  const pipes = [];
+  const pipeWidthMin = 40;
+  const pipeWidthMax = 80;
+  const pipeGapMin = 100;
+  const pipeGapMax = 150;
+  const maxHeightChange = 100; // Adjust this value as needed
+  let frame = 0;
+  let score = 0;
+  let spacePressed = false;
+  let topleewayCollision = 5;
+  let pipeLeewayCollision = 5;
+  let gameOver = false; // Add a flag to track game over state
+  let gameStarted = false; // Flag to track if the game has started
+  let lastPipeHeight = canvas.height / 2; // Initialize with a default value
+
+  document.addEventListener("keydown", (e) => {
+  if (e.code === "Space") {
+    spacePressed = true;
+  }
+});
+
+document.addEventListener("keyup", (e) => {
+  if (e.code === "Space") {
+    spacePressed = false;
+  }
+});
+
+  function drawBird() {
+    bird.frameTimer++;
+    if (bird.frameTimer >= bird.frameInterval) {
+      bird.frameIndex = (bird.frameIndex + 1) % bird.frameCount; // Cycle through frames
+      bird.frameTimer = 0;
+    }
+    const spriteX = bird.frameIndex * bird.width; // X position of the current frame in the sprite
+    ctx.drawImage(birdSprite, spriteX, 0, bird.width, bird.height, bird.x, bird.y, bird.width, bird.height);
+  }
+
+  function drawPipes() {
+    ctx.fillStyle = "green";
+    pipes.forEach(pipe => {
+      ctx.fillRect(pipe.x, 0, pipe.width, pipe.top);
+      ctx.fillRect(pipe.x, pipe.top + pipe.gap, pipe.width, canvas.height - pipe.top - pipe.gap);
+    });
+  }
+
+  function updatePipes() {
+    if (frame % 90 === 0) {
+      // Define the maximum change in height between consecutive pipes
+
+      // Calculate the new pipe's top height within the allowed range
+      const top = Math.max(
+        20,
+        Math.min(
+          lastPipeHeight + (Math.random() * maxHeightChange * 2 - maxHeightChange),
+          canvas.height - pipeGapMax - 20
+        )
+      );
+
+      const randomPipeGap = Math.random() * (pipeGapMax - pipeGapMin) + pipeGapMin; // Random gap
+      const randomPipeWidth = Math.random() * (pipeWidthMax - pipeWidthMin) + pipeWidthMin; // Random width
+
+      pipes.push({ x: canvas.width, top, gap: randomPipeGap, width: randomPipeWidth });
+
+      // Update the last pipe height
+      lastPipeHeight = top;
+    }
+
+    pipes.forEach(pipe => {
+      pipe.x -= 2;
+
+      // Collision detection
+      if (
+        !gameOver &&
+        bird.x + topleewayCollision < pipe.x + pipe.width - pipeLeewayCollision &&
+        bird.x + bird.width - topleewayCollision > pipe.x + pipeLeewayCollision &&
+        (bird.y + topleewayCollision < pipe.top - pipeLeewayCollision ||
+          bird.y + bird.height - topleewayCollision > pipe.top + pipe.gap + pipeLeewayCollision)
+      ) {
+        console.log("Collision detected!");
+        gameOver = true;
+        alert("Game Over! Score: " + score);
+        document.location.reload();
+      }
+
+      // Scoring
+      if (!pipe.scored && pipe.x + pipe.width < bird.x) {
+        score++;
+        pipe.scored = true;
+      }
+    });
+
+    // Remove offscreen pipes
+    if (pipes.length && pipes[0].x < -pipes[0].width) {
+      pipes.shift();
+    }
+  }
+
+  function drawScore() {
+    ctx.fillStyle = "white";
+    ctx.font = "20px Arial";
+    ctx.textAlign = "left"; // Align text to the left
+    ctx.fillText("Score: " + score, 10, 25); // Position the score at (10, 25)
+  }
+
+  function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (spacePressed) {
+        bird.velocity = bird.lift;
+    }
+
+    bird.velocity += bird.gravity;
+    bird.y += bird.velocity;
+
+    if (!gameOver && (bird.y > canvas.height || bird.y < 0)) { // Check if the game is not already over
+      gameOver = true; // Set the flag to true
+      alert("Game Over! Score: " + score);
+      document.location.reload();
+    }
+
+    drawBird();
+    updatePipes();
+    drawPipes();
+    drawScore();
+
+    frame++;
+    requestAnimationFrame(gameLoop);
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.code === "Space") {
+      bird.velocity = bird.lift;
+    }
+  });
+
+  canvas.addEventListener("click", () => {
+    bird.velocity = bird.lift;
+  });
+
+  function drawStartScreen() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
+    ctx.fillStyle = "white";
+    ctx.font = "20px Arial";
+    ctx.textAlign = "center"; // Center the text horizontally
+    ctx.fillText("Press Space to Start", canvas.width / 2, canvas.height / 2); // Center the text vertically
+  }
+
+  function startScreenLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Optionally, update the bird's position for a subtle bobbing effect:
+    bird.y += Math.sin(frame / 10) * 0.5; // gentle up and down motion
+
+    drawBird();
+
+    ctx.fillStyle = "white";
+    ctx.font = "20px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("Press Space to Start", canvas.width / 2, canvas.height / 2);
+
+    if (!gameStarted) {
+      requestAnimationFrame(startScreenLoop);
+    }
+  }
+
+  // Start the start screen animation loop
+  startScreenLoop();
+
+  // Modify keydown to start the actual game
+  document.addEventListener("keydown", (e) => {
+    if (e.code === "Space" && !gameStarted) {
+      gameStarted = true; // Stop the start screen loop from continuing
+      gameLoop();       // Start the game loop
+    }
+  });
+
+  drawStartScreen(); // Show the start screen initially
+</script>
+</body>
+</html>
